@@ -33,8 +33,7 @@ class Arc:
         angles *= np.pi / 180.0
         xs = np.cos(angles) * self.radius + self.center[0]
         ys = np.sin(angles) * self.radius + self.center[1]
-        return list(zip(xs, ys))
-
+        return [list(i) for i in zip(xs, ys)]
 
 
 class Dxf:
