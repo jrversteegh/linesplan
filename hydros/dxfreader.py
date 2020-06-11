@@ -9,7 +9,7 @@ from .linesplan import Frame
 class Spline:
     points = None
     knots = None
-    count = 100
+    count = 200
 
     def to_line(self, count=None):
         if count is None:
@@ -28,7 +28,7 @@ class Arc:
 
     def to_line(self, count=None):
         if count is None:
-            count = int(self.end_angle - self.start_angle)
+            count = int(self.end_angle - self.start_angle) * 2
         angles = np.linspace(self.start_angle, self.end_angle, count)
         angles *= np.pi / 180.0
         xs = np.cos(angles) * self.radius + self.center[0]
