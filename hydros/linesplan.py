@@ -14,6 +14,8 @@ class Frame:
             self.yz = args[0][:]
         else:
             self.yz = []
+        if 'x' in kwargs:
+            self.x = float(kwargs['x'])
         self.chines = []
 
 
@@ -119,11 +121,11 @@ def line_lengths(line):
     line = np.asarray(line)
     segments = line[1:] - line[:-1]
     segments *= segments
-    lengths = np.sqrt(segments[:,0] + segments[:1])
+    lengths = np.sqrt(segments[:,0] + segments[:,1])
     return list(lengths)
 
 
-def get_waterline_points(frame, draft, insert=False):
+def get_waterline_points(frame, draft):
     result = []
     prev = [0, 0]
     points = frame.yz
@@ -138,39 +140,56 @@ def get_waterline_points(frame, draft, insert=False):
             else:
                 new = [prev[0], draft]
             result.append(new)
-        if insert:
-            result.append(coord)
         prev = coord
     return result
 
 
-def insert_waterline_points(frame, draft):
-    return get_waterline_points(frame, draft, insert=True)
+def get_submerged_frame(frame, draft):
+    result = Frame(x=frame.x)
+    prev = [0, 0]
+    points = frame.yz
+    for coord in points:
+        prev_sub = draft - prev[1]
+        new_sub = draft - coord[1]
+        if prev_sub * new_sub < 0:
+            dz = coord[1] - prev[1]
+            dy = coord[0] - prev[0]
+            if dz != 0:
+                new = [prev[0] + prev_sub / dz * dy, draft]
+            else:
+                new = [prev[0], draft]
+            result.yz.append(new)
+        if new_sub >= 0:
+            result.yz.append(coord)
+        prev = coord
+    return result
 
 
-def get_cross_section(frame, draft):
-    a = np.array(insert_waterline_points(frame, draft))
-    a[a[:,1] > draft] = draft
+def get_cross_section(frame):
+    a = np.asarray(frame.yz)
     return trapz(a[:,0], a[:,1]) * 2
 
 
-def get_displacement(frames, draft_ap, draft_fp=None):
+def get_submerged_frames(frames, draft_ap, draft_fp=None):
     if draft_fp is None:
         draft_fp = draft_ap
     xs = np.array([ frame.x for frame in frames ])
     drafts = xs / (xs[-1] - xs[0]) * (draft_fp - draft_ap) + draft_ap
-    cross_sections = [ get_cross_section(frame, draft) for frame, draft in zip(frames, drafts) ]
+    return [ get_submerged_frame(frame, draft) for frame, draft in zip(frames, drafts) ]
+
+
+def get_displacement(frames, draft_ap, draft_fp=None):
+    submerged_frames = get_submerged_frames(frames, draft_ap, draft_fp)
+    xs = np.array([ frame.x for frame in frames ])
+    cross_sections = [ get_cross_section(submerged) for submerged in submerged_frames ]
     disp = simps(cross_sections, xs) 
-    mom = simps(cross_sections * xs, xs)
     return disp
 
 
 def get_lcb(frames, draft_ap, draft_fp=None):
-    if draft_fp is None:
-        draft_fp = draft_ap
+    submerged_frames = get_submerged_frames(frames, draft_ap, draft_fp)
     xs = np.array([ frame.x for frame in frames ])
-    drafts = xs / (xs[-1] - xs[0]) * (draft_fp - draft_ap) + draft_ap
-    cross_sections = [ get_cross_section(frame, draft) for frame, draft in zip(frames, drafts) ]
+    cross_sections = [ get_cross_section(submerged) for submerged in submerged_frames ]
     disp = simps(cross_sections, xs) 
     mom = simps(cross_sections * xs, xs)
     return mom / disp
@@ -192,7 +211,8 @@ def get_waterline(frames, draft_ap, draft_fp=None):
     direction = -1
     # Start at the bow
     i = len(waterline_points_list)
-    if i == 0:
+    if i < 2:
+        # If there are fewer than 2 points, there is no line
         return result
     while True:
         i += direction
@@ -222,26 +242,62 @@ def get_waterline_properties(waterline):
     return area, momx, momx2, momy, momy2
 
 
-def get_waterlines(lines_plan, drafts_ap, drafts_fp=None):
+def get_waterlines(frames, drafts_ap, drafts_fp=None):
     if drafts_fp is None:
         drafts_fp = drafts_ap
     result = []
     for tap, tfp in zip(drafts_ap, drafts_fp):
-        waterline = get_waterline(lines_plan.frames, tap, tfp)
+        waterline = get_waterline(frames, tap, tfp)
         result.append(waterline)
     return result
 
 
-def get_bm(lines_plan, draft_ap, draf_fp=None):
-    if draft_fp is None:
-        draft_fp = draft_ap
+def get_bm(frames, draft_ap, draft_fp=None):
+    waterline = get_waterline(frames, draft_ap, draft_fp)
+    a, mx, mx2, my, my2 = get_waterline_properties(waterline)
+    dispvol = get_displacement(frames, draft_ap, draft_fp)
+    return 2 * mx2 / dispvol
 
 
-def get_kb(lines_plan, draft_ap, draf_fp=None):
+def get_kb(frames, draft_ap, draft_fp=None):
     if draft_fp is None:
         draft_fp = draft_ap
     max_draft = max(draft_fp, draft_ap)
-    drafts_ap = np.linspace(draft_ap - max_draft, draft_ap, 21)
-    drafts_fp = np.linspace(draft_fp - max_draft, draft_fp, 21)
-    waterlines = get_waterlines(lines_plan, drafts_ap, drafts_fp)
-    areas = [ get_waterline_area(waterline) for waterline in waterlines ]
+    drafts_ap = np.linspace(draft_ap - max_draft, draft_ap, 41)
+    drafts_fp = np.linspace(draft_fp - max_draft, draft_fp, 41)
+    trim_aft = max_draft == draft_ap
+    waterlines = get_waterlines(frames, drafts_ap, drafts_fp)
+    areas = [ get_waterline_properties(waterline)[0] for waterline in waterlines ]
+    drafts = drafts_ap if trim_aft else drafts_fp
+    dispvol = simps(areas, drafts) 
+    m = simps(areas * drafts, drafts) 
+    return m / dispvol
+
+
+def get_km(frames, draft_ap, draft_fp=None):
+    return get_bm(frames, draft_ap, draft_fp) + get_kb(frames, draft_ap, draft_fp)
+
+
+def get_lcf(frames, draft_ap, draft_fp=None):
+    waterline = get_waterline(frames, draft_ap, draft_fp)
+    a, mx, mx2, my, my2 = get_waterline_properties(waterline)
+    return my / a
+
+def get_hull_areas(frames, deck_chine=-1):
+    hull = []
+    deck = []
+    xs = np.array([ frame.x for frame in frames ])
+    for frame in frames:
+        chine_index = frame.chines[deck_chine]
+        hull.append(np.sum(line_lengths(frame.yz[:chine_index+1])))
+        deck.append(np.sum(line_lengths(frame.yz[chine_index:])))
+    ha = 2 * simps(np.asarray(hull), xs)
+    da = 2 * simps(np.asarray(deck), xs)
+    return ha, da
+
+
+def get_wetted_surface(frames, draft_ap, draft_fp=None):
+    xs = np.array([ frame.x for frame in frames ])
+    submerged_frames = get_submerged_frames(frames, draft_ap, draft_fp)
+    lengths = [ np.sum(line_lengths(submerged.yz)) for submerged in submerged_frames ]
+    return 2 * simps(np.asarray(lengths), xs)

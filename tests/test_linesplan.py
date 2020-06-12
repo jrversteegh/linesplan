@@ -4,6 +4,7 @@ from testing_utils import *
 
 from hydros.linesplan import *
 
+import math
 import difflib
 
 class TestLinesPlan(unittest.TestCase):
@@ -11,6 +12,16 @@ class TestLinesPlan(unittest.TestCase):
 
 
 class TestFunctions(unittest.TestCase):
+
+    def setUp(self):
+        # Create a cylindrical body
+        f = np.linspace(0, np.pi, 101)
+        ys = np.sin(f)
+        zs = 1 - np.cos(f)
+        frame = [ [y, z] for y, z in zip(ys, zs) ]
+        self.frames = [ Frame(frame, x=float(i)) for i in range(5) ]
+        for frame in self.frames:
+            frame.chines.append(50)
 
     def test_load_save(self):
         f1 = 'data/fcs_3307.json'
@@ -39,6 +50,28 @@ class TestFunctions(unittest.TestCase):
         self.assertEqual(m1y2, m2y2)
         self.assertEqual(m1y2, 15.0 / 4.0) 
 
+    def test_get_km(self):
+        km = get_km(self.frames, 1.0)
+        dispvol = get_displacement(self.frames, 1.0)
+        self.assertAlmostEqual(math.pi * 2.0, dispvol, delta=1E-2)
+        self.assertAlmostEqual(1.0, km, delta=1E-2)
+        km = get_km(self.frames, 0.5)
+        self.assertAlmostEqual(1.0, km, delta=1E-2)
+        tap, tfp = 0.75, 0.50
+        km = get_km(self.frames, tap, tfp)
+        lcb = get_lcb(self.frames, tap, tfp)
+        expected = 1 + lcb / 4.0 * (tap - tfp)
+        self.assertAlmostEqual(expected, km, delta=1E-2)
+
+    def test_get_hull_areas(self):
+        ha, da = get_hull_areas(self.frames)
+        self.assertAlmostEqual(ha, da, delta=1E-3)
+        self.assertAlmostEqual(4 * math.pi, ha, delta=1E-3)
+
+    def test_get_wetted_surface(self):
+        draft = 1 - 0.5 * math.sqrt(2)
+        s = get_wetted_surface(self.frames, draft)
+        self.assertAlmostEqual(2 * math.pi, s, delta=1E-3)
 
 
 if __name__ == '__main__':
