@@ -1,8 +1,10 @@
 import sys
 import json
+import copy
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import trapz, simps
+from scipy.optimize import newton_krylov
 
 
 class Frame:
@@ -83,20 +85,38 @@ def save_lines_plan(lines, filename):
         f.write(s)
 
 
-def plot_frames(lines_plan, show_legend=False):    
+def plot_frames(frames, title=None, show_legend=False, show_waterline=None,
+                filename=None, ylim=None, xlim=None, cb=None):    
     plt.clf()
-    for i, frame in enumerate(lines_plan.frames):
+    if title:
+        plt.title(title)
+    for i, frame in enumerate(frames):
         a = np.asarray(frame.yz)
         plt.plot(a.T[0,:], a.T[1,:], label=str(i))
     if show_legend:
         plt.legend()
+    if show_waterline is not None:
+        plt.axhline(y=show_waterline, color='b')
+    if cb is not None:
+        plt.scatter(cb[1], cb[2], marker="o", s=10, c='#000000')
+        plt.axvline(x=cb[1], color='black', linestyle='--', linewidth=1)
     plt.axis('equal')
-    plt.show()
+    if ylim is not None:
+        plt.ylim(*ylim)
+    if xlim is not None:
+        plt.xlim(*xlim)
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig("%s.png" % filename)
 
 
-def plot_waterlines(lines_plan, drafts_ap, drafts_fp=None, show_frames=False, show_legend=False):
+def plot_waterlines(frames, drafts_ap, drafts_fp=None, title=None, show_frames=False,
+                    show_legend=False, filename=None):
     plt.clf()
-    waterlines = get_waterlines(lines_plan, drafts_ap, drafts_fp)
+    if title:
+        plt.title(title)
+    waterlines = get_waterlines(frames, drafts_ap, drafts_fp)
     for i, waterline in enumerate(waterlines):
         if not waterline:
             continue
@@ -108,16 +128,23 @@ def plot_waterlines(lines_plan, drafts_ap, drafts_fp=None, show_frames=False, sh
             plt.plot([x, x], [0, y], label=str(i))
             i += 1
     plt.axis('equal')
-    plt.show()
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig("%s.png" % filename)
 
 
 def line_segments(line):
+    if len(line) < 2:
+        return []
     line = np.asarray(line)
     segments = line[1:] - line[:-1]
     return [list(i) for i in segments]
 
 
 def line_lengths(line):
+    if len(line) < 2:
+        return []
     line = np.asarray(line)
     segments = line[1:] - line[:-1]
     segments *= segments
@@ -146,8 +173,8 @@ def get_waterline_points(frame, draft):
 
 def get_submerged_frame(frame, draft):
     result = Frame(x=frame.x)
-    prev = [0, 0]
     points = frame.yz
+    prev = frame.yz[0]
     for coord in points:
         prev_sub = draft - prev[1]
         new_sub = draft - coord[1]
@@ -165,9 +192,30 @@ def get_submerged_frame(frame, draft):
     return result
 
 
-def get_cross_section(frame):
+def get_cross_section(frame, full=False):
+    if not len(frame.yz):
+        return 0.0
     a = np.asarray(frame.yz)
-    return trapz(a[:,0], a[:,1]) * 2
+    return trapz(a[:,0], a[:,1]) * (2 - full)
+
+
+def get_mom_y(frame):
+    if not len(frame.yz):
+        return 0.0
+    a = np.asarray(frame.yz)
+    dz = a[1:,1] - a[:-1,1]
+    yy = a[:-1,0]**2 + a[:-1,0] * a[1:,0] + a[1:,0]**2 
+    return np.sum(dz * yy) / 6.0
+
+
+def get_mom_z(frame):
+    if not len(frame.yz):
+        return 0.0
+    a = np.asarray(frame.yz)
+    dz = a[1:,1] - a[:-1,1]
+    yz = (2 * (a[:-1,1] * a[:-1,0] + a[1:,1] *  a[1:,0]) + \
+              (a[:-1,1] *  a[1:,0] + a[1:,1] * a[:-1,0])) 
+    return np.sum(dz * yz) / 6.0
 
 
 def get_submerged_frames(frames, draft_ap, draft_fp=None):
@@ -178,10 +226,10 @@ def get_submerged_frames(frames, draft_ap, draft_fp=None):
     return [ get_submerged_frame(frame, draft) for frame, draft in zip(frames, drafts) ]
 
 
-def get_displacement(frames, draft_ap, draft_fp=None):
+def get_displacement(frames, draft_ap, draft_fp=None, full=False):
     submerged_frames = get_submerged_frames(frames, draft_ap, draft_fp)
     xs = np.array([ frame.x for frame in frames ])
-    cross_sections = [ get_cross_section(submerged) for submerged in submerged_frames ]
+    cross_sections = [ get_cross_section(submerged, full) for submerged in submerged_frames ]
     disp = simps(cross_sections, xs) 
     return disp
 
@@ -283,6 +331,14 @@ def get_lcf(frames, draft_ap, draft_fp=None):
     a, mx, mx2, my, my2 = get_waterline_properties(waterline)
     return my / a
 
+
+def get_hull_volume(frames):
+    xs = np.array([ frame.x for frame in frames ])
+    cross_sections = [ get_cross_section(frame) for frame in frames ]
+    vol = simps(cross_sections, xs) 
+    return vol
+
+
 def get_hull_areas(frames, deck_chine=-1):
     hull = []
     deck = []
@@ -301,3 +357,57 @@ def get_wetted_surface(frames, draft_ap, draft_fp=None):
     submerged_frames = get_submerged_frames(frames, draft_ap, draft_fp)
     lengths = [ np.sum(line_lengths(submerged.yz)) for submerged in submerged_frames ]
     return 2 * simps(np.asarray(lengths), xs)
+
+
+def get_full_frames(frames):
+    result = []
+    for frame in frames:
+        full_frame = Frame(x=frame.x)
+        starboard = [ [-y, z] for y, z in reversed(frame.yz) ]
+        port = [ [y, z] for y, z in frame.yz ]
+        full_frame.yz = np.asarray(starboard + port)
+        result.append(full_frame)
+    return result
+
+
+def get_rotated_frames(full_frames, phi):
+    result = []
+    for frame in full_frames:
+        new_frame = Frame(x=frame.x)
+        new_frame.yz = np.zeros_like(frame.yz)
+        new_frame.yz[:,0] =  np.cos(phi) * frame.yz[:,0] + np.sin(phi) * frame.yz[:,1]
+        new_frame.yz[:,1] = -np.sin(phi) * frame.yz[:,0] + np.cos(phi) * frame.yz[:,1]
+        result.append(new_frame)
+    return result
+
+
+def submerge_frames(full_frames, draft, trim=0):
+    draft_ap = draft
+    draft_fp = draft - trim
+    xs = np.array([ frame.x for frame in full_frames ])
+    drafts = xs / (xs[-1] - xs[0]) * (draft_fp - draft_ap) + draft_ap
+    for i, frame in enumerate(full_frames):
+        frame.yz[:,1] -= drafts[i]
+    submerged_frames = get_submerged_frames(full_frames, 0)
+    cross_sections = [ get_cross_section(submerged, full=True) for submerged in submerged_frames ]
+    mom_ys = [ get_mom_y(submerged) for submerged in submerged_frames ]
+    mom_zs = [ get_mom_z(submerged) for submerged in submerged_frames ]
+    disp = simps(cross_sections, xs) 
+    momx = simps(cross_sections * xs, xs)
+    momy = simps(mom_ys, xs)
+    momz = simps(mom_zs, xs)
+    return disp, momx / disp, momy / disp, momz / disp
+
+
+def float_frames(full_frames, dispvol, lcb):
+    def submerge(draft_trim):
+        draft, trim = draft_trim
+        ff = copy.deepcopy(full_frames)
+        v, x = submerge_frames(ff, draft, trim)[:2]
+        return dispvol - v, lcb - x
+
+    main_frame = full_frames[len(full_frames) // 2]
+    draft_guess = get_mom_z(main_frame) / get_cross_section(main_frame, full=True)
+
+    return newton_krylov(submerge, [draft_guess, 0])
+
