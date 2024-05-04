@@ -1,3 +1,5 @@
 /venv
 *.pyc
 /tests/output
+/poetry.lock
+.ipynb_checkpoints
