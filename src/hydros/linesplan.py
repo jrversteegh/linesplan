@@ -68,7 +68,8 @@ def load_lines_plan(filename):
             frame = Frame()
             frame.x = f["x"]
             frame.yz = f["yz"]
-            frame.chines = f["chines"]
+            if "chines" in f:
+                frame.chines = f["chines"]
             result.frames.append(frame)
     return result
 
