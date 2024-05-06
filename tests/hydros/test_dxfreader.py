@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-
-from testing_utils import *
+import unittest
 
 from hydros.dxfreader import *
 
@@ -67,7 +65,3 @@ class TestFunctions(unittest.TestCase):
         self.assertEqual([2], frame.chines)
         expected = [[1, 0], [2, 1], [3, 2], [4, 4]]
         self.assertEqual(expected, frames[0].yz)
-
-
-if __name__ == "__main__":
-    unittest.main()

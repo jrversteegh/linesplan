@@ -1,9 +1,8 @@
-#!/usr/bin/env python
-
 import difflib
 import math
+import unittest
 
-from testing_utils import *
+import pytest
 
 from hydros.linesplan import *
 
@@ -24,9 +23,9 @@ class TestFunctions(unittest.TestCase):
         for frame in self.frames:
             frame.chines.append(50)
 
-    def test_load_save(self):
-        f1 = "data/fcs_3307.json"
-        f2 = "output/fcs_3307.json"
+    def test_load_save(self, scriptdir):
+        f1 = scriptdir / "../data/grender_sailer.json"
+        f2 = scriptdir / "../output/grendel_sailer.json"
         lines = load_lines_plan(f1)
         save_lines_plan(lines, f2)
         with open(f1) as f:
@@ -73,7 +72,3 @@ class TestFunctions(unittest.TestCase):
         draft = 1 - 0.5 * math.sqrt(2)
         s = get_wetted_surface(self.frames, draft)
         self.assertAlmostEqual(2 * math.pi, s, delta=1e-3)
-
-
-if __name__ == "__main__":
-    unittest.main()

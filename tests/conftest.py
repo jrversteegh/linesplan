@@ -9,7 +9,6 @@ import __main__ as main
 
 scriptdir = os.path.dirname(os.path.realpath(__file__))
 _module_path = scriptdir + "/.."
-sys.path.insert(0, _module_path)
 
 os.chdir(scriptdir)
 if not os.path.exists("output"):

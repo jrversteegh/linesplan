@@ -1,0 +1,20 @@
+schema_version = "1.0.0"
+
+id = "blender_hydros"
+version = "0.0.99"
+name = "Hydros"
+tagline = "Ship linesplans and hydrostatics"
+maintainer = "J.R. Versteegh <j.r.versteegh@gmail.com>"
+type = "add-on"
+
+permissions = ["files", "network"]
+
+website = "https://www.orca-st.com/"
+
+tags = ["3D View", "Modeling", "Mesh", "Object"]
+
+blender_version_min = "4.0.0"
+
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
