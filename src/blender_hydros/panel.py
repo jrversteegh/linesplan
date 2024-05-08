@@ -5,19 +5,21 @@ import bpy_extras
 
 _log = logging.getLogger(__name__ + ".panel")
 
+
 class HydrosLoad(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     bl_idname = "object.hydros_load"
     bl_label = "Load"
 
     def execute(self, context):
-        return {'FINISHED'}
+        return {"FINISHED"}
+
 
 class HydrosSave(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     bl_idname = "object.hydros_save"
     bl_label = "Save"
 
     def execute(self, context):
-        return {'FINISHED'}
+        return {"FINISHED"}
 
 
 class HydrosPanel(bpy.types.Panel):

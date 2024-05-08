@@ -19,23 +19,24 @@ def get_version():
         return "Not installed"
 
 
-def _install_pip():
+def install_pip():
     cmd = [sys.executable, "-m", "ensurepip", "--upgrade"]
-    subprocess.call(cmd)
+    return subprocess.call(cmd) == 0
 
 
-def _ensure_pip():
-    if subprocess.call([sys.executable, "-m", "pip", "--version"]):
-        _install_pip()
+def ensure_pip():
+    if subprocess.call([sys.executable, "-m", "pip", "--version"]) != 0:
+        return install_pip()
+    return True
 
 
-def _update_pip():
-    _ensure_pip
+def update_pip():
+    if not ensure_pip():
+        return False
     cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "pip"]
-    subprocess.call(cmd)
+    return subprocess.call(cmd) == 0
 
 
 def install():
-    _update_pip()
     cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "hydros"]
-    subprocess.call(cmd)
+    return subprocess.call(cmd) == 0

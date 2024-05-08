@@ -1,6 +1,6 @@
 import logging
-import bpy
 
+import bpy
 
 bl_info = {
     "name": "Hydros",
@@ -21,8 +21,11 @@ bl_info = {
 __version__ = ".".join([str(i) for i in bl_info["version"]])
 __author__ = bl_info["author"]
 
+from .hydros import get_installed
 from .panel import register as register_panel
 from .panel import unregister as unregister_panel
+from .preferences import register as register_preferences
+from .preferences import unregister as unregister_preferences
 
 _log = logging.getLogger(__name__)
 _log.setLevel(logging.DEBUG)
@@ -31,9 +34,13 @@ _log.addHandler(logging.StreamHandler())
 
 def register():
     _log.info("Registering hydros add-in")
-    register_panel()
+    register_preferences()
+    if get_installed():
+        register_panel()
 
 
 def unregister():
     _log.info("Unregistering hydros add-in")
-    unregister_panel()
+    unregister_preferences()
+    if get_installed():
+        unregister_panel()
