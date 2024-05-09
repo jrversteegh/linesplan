@@ -7,7 +7,8 @@ import bpy
 from bpy.props import EnumProperty, StringProperty
 from bpy.types import AddonPreferences, Operator
 
-from .lines import ensure_pip, get_installed, get_version, install, update_pip
+from .lines import (ensure_pip, get_installed, get_version, install, uninstall,
+                    update, update_pip)
 
 _log = logging.getLogger(__name__ + ".preferences")
 
@@ -25,7 +26,7 @@ class InstallPackage(Operator):
     """Install module from local .whl file or from PyPi"""
 
     bl_idname = "view3d.linesplan_install_package"
-    bl_label = "Install/update"
+    bl_label = "Install"
 
     package: StringProperty(subtype="FILE_PATH")
 
@@ -45,7 +46,41 @@ class InstallPackage(Operator):
             self.report({"WARNING"}, "Failed to update pip")
 
         if not install():
-            self.report({"WARNING"}, "Failed to install linesplan")
+            self.report({"ERROR"}, "Failed to install linesplan")
+            return {"CANCELLED"}
+
+        return {"FINISHED"}
+
+
+class UninstallPackage(Operator):
+    """Uninstall module"""
+
+    bl_idname = "view3d.linesplan_uninstall_package"
+    bl_label = "Uninstall"
+
+    def execute(self, context):
+        if not uninstall():
+            self.report(
+                {"ERROR"},
+                "Failed to uninstall linesplan",
+            )
+            return {"CANCELLED"}
+
+        return {"FINISHED"}
+
+
+class UpdatePackage(Operator):
+    """Update module"""
+
+    bl_idname = "view3d.linesplan_update_package"
+    bl_label = "Update"
+
+    def execute(self, context):
+        if not update():
+            self.report(
+                {"ERROR"},
+                "Failed to update linesplan",
+            )
             return {"CANCELLED"}
 
         return {"FINISHED"}
@@ -75,12 +110,28 @@ class Preferences(AddonPreferences):
         box = layout.box()
         box.label(text="linesplan Module")
         if get_installed():
-            box.label(text="Installed", icon="CHECKMARK")
-            box.label(text="Version: " + get_version())
+            row = box.row()
+            row.label(text="Installed", icon="CHECKMARK")
+            row = box.row()
+            row.label(text=f"Version: {get_version()}")
+
+            row = box.row()
+            row.operator(
+                "view3d.linesplan_uninstall_package",
+                text="Remove",
+            )
+
+            row = box.row()
+            row.operator(
+                "view3d.linesplan_update_package",
+                text="Update",
+            )
         else:
             row = box.row()
             row.label(text="linesplan isn't installed", icon="CANCEL")
-            split = box.split(factor=0.8)
+
+            row = box.row()
+            split = row.split(factor=0.8)
             split.prop(self, "package_path", text="")
             split.operator(
                 "view3d.linesplan_install_package",
@@ -101,6 +152,8 @@ class Preferences(AddonPreferences):
 
 def register():
     _log.info(f"Registering preferences")
+    bpy.utils.register_class(UninstallPackage)
+    bpy.utils.register_class(UpdatePackage)
     bpy.utils.register_class(InstallPackage)
     bpy.utils.register_class(Preferences)
 
@@ -108,4 +161,6 @@ def register():
 def unregister():
     _log.info(f"Unregistering preferences")
     bpy.utils.unregister_class(Preferences)
+    bpy.utils.unregister_class(UpdatePackage)
     bpy.utils.unregister_class(InstallPackage)
+    bpy.utils.unregister_class(UninstallPackage)

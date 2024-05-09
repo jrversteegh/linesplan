@@ -1,4 +1,5 @@
 import importlib
+import importlib.metadata
 import site
 import subprocess
 import sys
@@ -6,15 +7,15 @@ import sys
 
 def get_installed():
     try:
-        importlib.import_module("linesplan")
+        importlib.metadata.version("linesplan")
         return True
-    except ModuleNotFoundError as e:
+    except importlib.metadata.PackageNotFoundError as e:
         return False
 
 
 def get_version():
     if get_installed():
-        return linesplan.__version__
+        return importlib.metadata.version("linesplan")
     else:
         return "Not installed"
 
@@ -38,5 +39,15 @@ def update_pip():
 
 
 def install():
+    cmd = [sys.executable, "-m", "pip", "install", "linesplan"]
+    return subprocess.call(cmd) == 0
+
+
+def update():
     cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "linesplan"]
+    return subprocess.call(cmd) == 0
+
+
+def uninstall():
+    cmd = [sys.executable, "-m", "pip", "uninstall", "-y", "linesplan"]
     return subprocess.call(cmd) == 0
