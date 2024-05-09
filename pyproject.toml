@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "hydros"
+name = "linesplan"
 version = "0.1.0"
 description = "Ship Linesplan and Hydrostatics"
 authors = ["Jaap Versteegh <j.r.versteegh@gmail.com>"]

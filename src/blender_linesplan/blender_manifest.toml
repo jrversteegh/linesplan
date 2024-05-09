@@ -1,8 +1,8 @@
 schema_version = "1.0.0"
 
-id = "blender_hydros"
+id = "blender_linesplan"
 version = "0.0.99"
-name = "Hydros"
+name = "Linesplan"
 tagline = "Ship linesplans and hydrostatics"
 maintainer = "J.R. Versteegh <j.r.versteegh@gmail.com>"
 type = "add-on"

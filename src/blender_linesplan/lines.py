@@ -6,7 +6,7 @@ import sys
 
 def get_installed():
     try:
-        importlib.import_module("hydros")
+        importlib.import_module("linesplan")
         return True
     except ModuleNotFoundError as e:
         return False
@@ -14,7 +14,7 @@ def get_installed():
 
 def get_version():
     if get_installed():
-        return hydros.__version__
+        return linesplan.__version__
     else:
         return "Not installed"
 
@@ -38,5 +38,5 @@ def update_pip():
 
 
 def install():
-    cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "hydros"]
+    cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "linesplan"]
     return subprocess.call(cmd) == 0

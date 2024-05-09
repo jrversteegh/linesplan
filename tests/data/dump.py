@@ -8,8 +8,8 @@ scriptdir = os.path.dirname(os.path.realpath(__file__))
 _module_path = scriptdir + "/.."
 sys.path.insert(0, _module_path)
 
-from hydros.dxfreader import *
-from hydros.linesplan import *
+from linesplan.dxfreader import *
+from linesplan.linesplan import *
 
 dxf = Dxf("tally_ho.dxf")
 

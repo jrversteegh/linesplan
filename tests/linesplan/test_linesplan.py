@@ -4,10 +4,10 @@ import unittest
 
 import pytest
 
-from hydros.linesplan import *
+from linesplan.lines import *
 
 
-class TestLinesPlan(unittest.TestCase):
+class TestLines(unittest.TestCase):
     pass
 
 

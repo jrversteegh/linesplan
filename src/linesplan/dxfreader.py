@@ -4,7 +4,7 @@ import ezdxf
 import numpy as np
 from scipy.interpolate import BSpline
 
-from .linesplan import Frame
+from .line import Frame
 
 
 class Spline:

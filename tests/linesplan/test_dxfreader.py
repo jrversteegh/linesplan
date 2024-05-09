@@ -1,6 +1,6 @@
 import unittest
 
-from hydros.dxfreader import *
+from linesplan.dxfreader import *
 
 
 class TestDxf(unittest.TestCase):

@@ -59,8 +59,8 @@ def build_exe(ctx):
 @task
 def build_blender(ctx):
     """Build blender add-on"""
-    source = "blender_hydros"
-    target = "../build/blender-hydros.zip"
+    source = "blender_linesplan"
+    target = "../build/blender-linesplan.zip"
     with ctx.cd("src"):
         for cmd in (
             "mkdir -p ../build/",

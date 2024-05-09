@@ -7,7 +7,7 @@ import bpy
 from bpy.props import EnumProperty, StringProperty
 from bpy.types import AddonPreferences, Operator
 
-from .hydros import ensure_pip, get_installed, get_version, install, update_pip
+from .lines import ensure_pip, get_installed, get_version, install, update_pip
 
 _log = logging.getLogger(__name__ + ".preferences")
 
@@ -24,7 +24,7 @@ log_levels = [
 class InstallPackage(Operator):
     """Install module from local .whl file or from PyPi"""
 
-    bl_idname = "view3d.hydros_install_package"
+    bl_idname = "view3d.linesplan_install_package"
     bl_label = "Install/update"
 
     package: StringProperty(subtype="FILE_PATH")
@@ -45,7 +45,7 @@ class InstallPackage(Operator):
             self.report({"WARNING"}, "Failed to update pip")
 
         if not install():
-            self.report({"WARNING"}, "Failed to install hydros")
+            self.report({"WARNING"}, "Failed to install linesplan")
             return {"CANCELLED"}
 
         return {"FINISHED"}
@@ -56,7 +56,7 @@ class Preferences(AddonPreferences):
     bl_idname = __package__
 
     package_path: StringProperty(
-        name="Hydros package filepath",
+        name="linesplan package filepath",
         description="Filepath to the hydro's .whl file",
         subtype="FILE_PATH",
         default="",
@@ -73,25 +73,25 @@ class Preferences(AddonPreferences):
         layout.use_property_split = True
 
         box = layout.box()
-        box.label(text="Hydros Module")
+        box.label(text="linesplan Module")
         if get_installed():
             box.label(text="Installed", icon="CHECKMARK")
             box.label(text="Version: " + get_version())
         else:
             row = box.row()
-            row.label(text="Hydros isn't installed", icon="CANCEL")
+            row.label(text="linesplan isn't installed", icon="CANCEL")
             split = box.split(factor=0.8)
             split.prop(self, "package_path", text="")
             split.operator(
-                "view3d.hydros_install_package",
+                "view3d.linesplan_install_package",
                 text="Install from File",
             ).package = self.package_path
 
             row = box.row()
             row.operator(
-                "view3d.hydros_install_package",
+                "view3d.linesplan_install_package",
                 text="Install from PIP",
-            ).package = "hydros"
+            ).package = "linesplan"
 
         box = layout.box()
         box.label(text="Debugging")
