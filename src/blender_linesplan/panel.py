@@ -3,6 +3,8 @@ import logging
 import bpy
 import bpy_extras
 
+from .registry import register_class
+
 _log = logging.getLogger(__name__ + ".panel")
 
 
@@ -36,15 +38,6 @@ class LinesplanPanel(bpy.types.Panel):
         layout.operator("object.linesplan_save", text="Save...")
 
 
-def register():
-    _log.info(f"Registering linesplan panel")
-    bpy.utils.register_class(LinesplanPanel)
-    bpy.utils.register_class(LinesplanLoad)
-    bpy.utils.register_class(LinesplanSave)
-
-
-def unregister():
-    _log.info(f"Unregistering linesplan panel")
-    bpy.utils.unregister_class(LinesplanSave)
-    bpy.utils.unregister_class(LinesplanLoad)
-    bpy.utils.unregister_class(LinesplanPanel)
+register_class(LinesplanLoad)
+register_class(LinesplanSave)
+register_class(LinesplanPanel)

@@ -7,8 +7,9 @@ import bpy
 from bpy.props import EnumProperty, StringProperty
 from bpy.types import AddonPreferences, Operator
 
-from .lines import (ensure_pip, get_installed, get_version, install, uninstall,
-                    update, update_pip)
+from .linesplan import (ensure_pip, get_installed, get_version, install,
+                        uninstall, update, update_pip)
+from .registry import update_registration
 
 _log = logging.getLogger(__name__ + ".preferences")
 
@@ -49,6 +50,8 @@ class InstallPackage(Operator):
             self.report({"ERROR"}, "Failed to install linesplan")
             return {"CANCELLED"}
 
+        update_registration()
+
         return {"FINISHED"}
 
 
@@ -65,6 +68,8 @@ class UninstallPackage(Operator):
                 "Failed to uninstall linesplan",
             )
             return {"CANCELLED"}
+
+        update_registration()
 
         return {"FINISHED"}
 
@@ -148,6 +153,14 @@ class Preferences(AddonPreferences):
         box.label(text="Debugging")
         col = box.column(align=True)
         col.prop(self, "logging_level")
+
+
+def get_name():
+    return __package__.rsplit(".", maxsplit=1)[0]
+
+
+def get_prefs():
+    return bpy.context.preferences.addons[get_name()].preferences
 
 
 def register():

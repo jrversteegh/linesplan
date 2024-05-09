@@ -21,26 +21,30 @@ bl_info = {
 __version__ = ".".join([str(i) for i in bl_info["version"]])
 __author__ = bl_info["author"]
 
-from .lines import get_installed
-from .panel import register as register_panel
-from .panel import unregister as unregister_panel
+from . import panel
+from .linesplan import get_installed
+from .preferences import get_prefs
 from .preferences import register as register_preferences
 from .preferences import unregister as unregister_preferences
+from .registry import unregister_classes, update_registration
 
 _log = logging.getLogger(__name__)
-_log.setLevel(logging.DEBUG)
-_log.addHandler(logging.StreamHandler())
+
+
+def setup_log():
+    prefs = get_prefs
+    _log.setLevel(prefs.logging_level)
+    _log.addHandler(logging.StreamHandler())
 
 
 def register():
-    _log.info("Registering linesplan add-in")
     register_preferences()
-    if get_installed():
-        register_panel()
+    setup_log()
+    _log.info("Registering linesplan add-in")
+    update_registration()
 
 
 def unregister():
     _log.info("Unregistering linesplan add-in")
+    unregister_classes()
     unregister_preferences()
-    if get_installed():
-        unregister_panel()
