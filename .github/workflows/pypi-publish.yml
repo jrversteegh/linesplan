@@ -19,6 +19,7 @@ permissions:
 
 jobs:
   deploy:
+    environment: release
     strategy:
       matrix:
         version: [ '3.11' ]

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "linesplan"
-version = "0.1.0"
+version = "0.1.1"
 description = "Ship Linesplan and Hydrostatics"
 authors = ["Jaap Versteegh <j.r.versteegh@gmail.com>"]
 license = "GPLv3"
