@@ -163,17 +163,31 @@ def get_prefs():
     return bpy.context.preferences.addons[get_name()].preferences
 
 
+def register_class(cls):
+    try:
+        bpy.utils.register_class(cls)
+    except ValueError as e:
+        _log.error(f"Failed to register {cls}: {e}")
+
+
+def unregister_class(cls):
+    try:
+        bpy.utils.unregister_class(cls)
+    except ValueError as e:
+        _log.error(f"Failed to unregister {cls}: {e}")
+
+
 def register():
     _log.info(f"Registering preferences")
-    bpy.utils.register_class(UninstallPackage)
-    bpy.utils.register_class(UpdatePackage)
-    bpy.utils.register_class(InstallPackage)
-    bpy.utils.register_class(Preferences)
+    register_class(UninstallPackage)
+    register_class(UpdatePackage)
+    register_class(InstallPackage)
+    register_class(Preferences)
 
 
 def unregister():
     _log.info(f"Unregistering preferences")
-    bpy.utils.unregister_class(Preferences)
-    bpy.utils.unregister_class(UpdatePackage)
-    bpy.utils.unregister_class(InstallPackage)
-    bpy.utils.unregister_class(UninstallPackage)
+    unregister_class(Preferences)
+    unregister_class(UpdatePackage)
+    unregister_class(InstallPackage)
+    unregister_class(UninstallPackage)

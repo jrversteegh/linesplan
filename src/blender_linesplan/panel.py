@@ -10,17 +10,26 @@ _log = logging.getLogger(__name__ + ".panel")
 
 class LinesplanLoad(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     bl_idname = "object.linesplan_load"
-    bl_label = "Load"
+    bl_label = "Load linesplan"
+
+    filename_ext = ".json"
+    filter_glob: bpy.props.StringProperty(
+        default="*.json",
+        options={"HIDDEN"},
+        maxlen=255,
+    )
 
     def execute(self, context):
+        _log.info(f"Opening file: {self.filepath}")
         return {"FINISHED"}
 
 
 class LinesplanSave(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     bl_idname = "object.linesplan_save"
-    bl_label = "Save"
+    bl_label = "Save linesplan"
 
     def execute(self, context):
+        _log.info(f"Saving file: {self.filepath}")
         return {"FINISHED"}
 
 

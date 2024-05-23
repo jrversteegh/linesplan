@@ -5,7 +5,7 @@ import bpy
 bl_info = {
     "name": "Linesplan",
     "author": "J.R. Versteegh",
-    "version": (0, 0, 1),
+    "version": (0, 0, 2),
     "blender": (3, 0, 0),
     "location": "View3D > UI > Linesplan",
     "description": "Ship linesplans and hydrostatics",
@@ -32,7 +32,7 @@ _log = logging.getLogger(__name__)
 
 
 def setup_log():
-    prefs = get_prefs
+    prefs = get_prefs()
     _log.setLevel(prefs.logging_level)
     _log.addHandler(logging.StreamHandler())
 
