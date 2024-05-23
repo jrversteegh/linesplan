@@ -60,10 +60,10 @@ def build_exe(ctx):
 def build_blender(ctx):
     """Build blender add-on"""
     source = "blender_linesplan"
-    target = "../build/blender-linesplan.zip"
+    target = "../dist/blender-linesplan.zip"
     with ctx.cd("src"):
         for cmd in (
-            "mkdir -p ../build/",
+            "mkdir -p ../dist/",
             f"rm -f {target}",
             f"rm -rf {source}/__pycache__",
             f"zip -r {target} {source}",
