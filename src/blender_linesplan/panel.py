@@ -24,9 +24,16 @@ class LinesplanLoad(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         return {"FINISHED"}
 
 
-class LinesplanSave(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
+class LinesplanSave(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     bl_idname = "object.linesplan_save"
     bl_label = "Save linesplan"
+
+    filename_ext = ".json"
+    filter_glob: bpy.props.StringProperty(
+        default="*.json",
+        options={"HIDDEN"},
+        maxlen=255,
+    )
 
     def execute(self, context):
         _log.info(f"Saving file: {self.filepath}")
