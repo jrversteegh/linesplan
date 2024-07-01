@@ -3,9 +3,13 @@ import logging
 import bpy
 import bpy_extras
 
+from .model import load_model, save_model
 from .registry import register_class
 
 _log = logging.getLogger(__name__ + ".panel")
+
+
+_lines = None
 
 
 class LinesplanLoad(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
@@ -20,7 +24,9 @@ class LinesplanLoad(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     )
 
     def execute(self, context):
+        global _lines
         _log.info(f"Opening file: {self.filepath}")
+        load_model(self.filepath)
         return {"FINISHED"}
 
 
@@ -37,6 +43,7 @@ class LinesplanSave(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
 
     def execute(self, context):
         _log.info(f"Saving file: {self.filepath}")
+        save_model(self.filepath)
         return {"FINISHED"}
 
 

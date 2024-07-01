@@ -1,7 +1,5 @@
 import logging
 
-import bpy
-
 bl_info = {
     "name": "Linesplan",
     "author": "J.R. Versteegh",

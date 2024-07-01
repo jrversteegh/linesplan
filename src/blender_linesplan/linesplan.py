@@ -1,6 +1,5 @@
 import importlib
 import importlib.metadata
-import site
 import subprocess
 import sys
 
@@ -9,7 +8,7 @@ def get_installed():
     try:
         importlib.metadata.version("linesplan")
         return True
-    except importlib.metadata.PackageNotFoundError as e:
+    except importlib.metadata.PackageNotFoundError:
         return False
 
 

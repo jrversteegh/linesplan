@@ -1,6 +1,4 @@
 import logging
-import site
-import sys
 from pathlib import Path
 
 import bpy

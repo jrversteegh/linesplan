@@ -29,6 +29,9 @@ class Frame:
         offset = np.asarray(self.yz) + np.asarray(vector)
         self.yz = [list(i) for i in offset]
 
+    def __len__(self):
+        return len(self.yz)
+
 
 class Lines:
 
