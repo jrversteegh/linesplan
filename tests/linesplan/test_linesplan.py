@@ -1,10 +1,14 @@
 import difflib
 import math
+import os
 import unittest
+from pathlib import Path
 
 import pytest
 
 from linesplan.lines import *
+
+scriptdir = Path(os.path.dirname(os.path.realpath(__file__)))
 
 
 class TestLines(unittest.TestCase):
@@ -23,8 +27,8 @@ class TestFunctions(unittest.TestCase):
         for frame in self.frames:
             frame.chines.append(50)
 
-    def test_load_save(self, scriptdir):
-        f1 = scriptdir / "../data/grender_sailer.json"
+    def test_load_save(self):
+        f1 = scriptdir / "../data/grendel_sailer.json"
         f2 = scriptdir / "../output/grendel_sailer.json"
         lines = load_lines_plan(f1)
         save_lines_plan(lines, f2)

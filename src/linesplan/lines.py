@@ -1,6 +1,7 @@
 import copy
 import json
 import sys
+from bisect import bisect_left, insort_left
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,7 +9,63 @@ from scipy.integrate import simpson, trapezoid
 from scipy.optimize import newton_krylov
 
 
-class Frame:
+class Object:
+    """Multiple inheritance base class"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+
+class Kinked(Object):
+    """Object that has a list with indices to kink/chine points"""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if "kinks" in kwargs:
+            self.kinks = list(kwargs["kinks"])
+
+    def add_kink(self, index):
+        """Add a kink/chine point
+
+        :param index: Index of non smooth point
+        """
+        if index not in self.kinks:
+            insort_left(self.kinks, index)
+
+    def remove_kink(self, index, fail_non_existing=False):
+        """Remove kink
+
+        :param index: Index of kink point
+        :param fail_non_existing: Whether to fail when the kink isn't in the list
+        """
+        if index in self.kinks or fail_non_existing:
+            self.kinks.remove(index)
+
+    def delete_kink(self, index):
+        """Delete kink
+
+        :param index: Index in list of kinks/chines
+        """
+        self.kinks.pop(index)
+
+    def update_kinks(index, direction):
+        i = bisect_left(self.kinks, index)
+        if direction < 0 and self.kinks[i] == index:
+            j = i + 1
+        else:
+            j = i
+        self.kinks = [k for k in self.kinks[:i]] + [
+            k + direction for k in self.kinks[j:]
+        ]
+
+
+class Frame(Kinked):
+    """Object resprenting a frame/station in a lines plan.
+
+    A list of points starting at the hull's base line upwards towards and the
+    deckline and then continuing to the ship's centerline. The hull is assumed
+    symmetrical, so the frame only contains one side of hull"""
+
     x = 0.0
 
     def __init__(self, *args, **kwargs):
@@ -22,18 +79,141 @@ class Frame:
         self.chines = []
 
     def scale(self, factor):
+        """Scale the frame
+
+        :param factor: Factor to scale y
+        """
         scaled = np.asarray(self.yz) * factor
         self.yz = [list(i) for i in scaled]
 
     def offset(self, vector):
+        """Move the frame in the plane of the frame
+
+        :param vector: Vector (of size 2) to move by.
+        """
         offset = np.asarray(self.yz) + np.asarray(vector)
         self.yz = [list(i) for i in offset]
 
+    def insert(self, index, yz, chine=False):
+        """Insert a point into the frame
+
+        :param index: Position in frame point list to insert at
+        :param yz: 2D coordinate of point to insert
+        :param chine: Whether the point represents a chine/is a kink point
+        """
+        self.yz.insert(index, yz)
+        self.update_kinks(index, 1)
+        if chine:
+            self.add_kink(index)
+
+    def delete(self, index):
+        """Remove point at index
+
+        :param index: Index of point to delete
+        """
+        self.yz.pop(index)
+        self.update_kinks(index, -1)
+
     def __len__(self):
+        """Number of points in the frame"""
         return len(self.yz)
+
+    def sections(self):
+        """Generator of piecewise smooth sections in frame"""
+        i = 0
+        for c in self.chines:
+            yield self.yz[i:c]
+            i = c
+        yield self.yz[i:]
+
+
+class Vertical(Kinked):
+    """Vertical section of lines plan"""
+
+    y = 0.0  # Distance from center line
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        if len(args) > 0:
+            self.xz = args[0][:]
+        else:
+            self.xz = []
+        if "y" in kwargs:
+            self.y = float(kwargs["y"])
+        self.kinks = []
+
+    def insert(self, index, xz, kink=False):
+        """Insert a point into the vertical
+
+        :param index: Position in frame point list to insert at
+        :param yz: 2D coordinate of point to insert
+        :param chine: Whether the point represents a chine/is a kink point
+        """
+        self.xz.insert(index, xz)
+        self.update_kinks(index, 1)
+        if kink:
+            self.add_kink(index)
+
+    def delete(self, index):
+        self.xz.pop(index)
+        self.update_kinks(index, -1)
+
+    def __len__(self):
+        return len(self.xz)
+
+    def sections(self):
+        """Generator of piecewise smooth sections in vertical"""
+        i = 0
+        for k in self.kinks:
+            yield self.xz[i:k]
+            i = k
+        yield self.xz[i:]
+
+
+class Line(Kinked):
+    """3D Line"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        if len(args) > 0:
+            self.xyz = args[0][:]
+        else:
+            self.xyz = []
+
+    def insert(self, index, xyz, kink=False):
+        """Insert point in line
+
+        :param index: Position in line point list to insert at
+        :param yz: 3D coordinate of point to insert
+        :param chine: Whether the point represents a chine/is a kink point
+        """
+        self.xyz.insert(index, xyz)
+        self.update_kinks(index, 1)
+        if kink:
+            self.add_kink(index)
+
+    def delete(self, index):
+        self.xyz.pop(index)
+        self.update_kinks(index, -1)
+
+    def __len__(self):
+        return len(self.xyz)
+
+    def sections(self):
+        """Generator of piecewise smooth sections in line"""
+        i = 0
+        for k in self.kinks:
+            yield self.xyz[i:k]
+            i = k
+        yield self.xyz[i:]
 
 
 class Lines:
+    """Lines plan: a collection of frames"""
+
+    center_line: Vertical = None
+    deck_line: Line = None
+    chines: list[Line] = None
 
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -41,6 +221,10 @@ class Lines:
         self.name = ""
 
     def close_frames(self, margin=5e-3):
+        """Close frames that have an open top (i.e. no deck)
+
+        :param margin: Threshold y value of last frame point to consider it being on the center line
+        """
         for frame in self.frames:
             if frame.yz[0][0] < margin:
                 frame.yz[0][0] = 0.0
@@ -55,14 +239,26 @@ class Lines:
                 frame.yz.append([0.0, frame.yz[-1][1]])
 
     def scale(self, factor):
+        """Scale all frames
+
+        :param factor: Factor to scale by. Will not scale x positions.
+        """
         for frame in self.frames:
             frame.scale(factor)
 
     def save(self, filename):
+        """Save the lines to disk
+
+        :param filename: Filename to save to
+        """
         save_lines_plan(self, filename)
 
 
 def load_lines_plan(filename):
+    """Load lines plan from file
+
+    :param filename: Filename of lines in dedicated file format
+    """
     result = Lines()
     with open(filename) as f:
         data = json.loads(f.read())
@@ -78,6 +274,10 @@ def load_lines_plan(filename):
 
 
 def save_lines_plan(lines, filename):
+    """Save linesplan to file in dedicated format
+
+    :param filename: Filename to save the lines to
+    """
     frames = [{"x": fr.x, "yz": fr.yz, "chines": fr.chines} for fr in lines.frames]
     s = json.dumps({"name": lines.name, "frames": frames}, indent=2)
     with open(filename, "w") as f:
@@ -94,6 +294,17 @@ def plot_frames(
     xlim=None,
     cb=None,
 ):
+    """Plot frames of lines plan using matplotlib
+
+    :param frames: List of frames. Typically `Lines.frames`
+    :param title: Title of plot
+    :param show_legend: Whether to show a legend on the plot
+    :param show_waterline: Show waterline a z level indicated by the value of this parameter
+    :param filename: Filename to plot to rather than show on screen
+    :param ylim: Y limits of plot range (z range of plan)
+    :param xlim: X limits of plot range (y range of plan)
+    :param cb: Plot center of buoyance at this location (3D point)
+    """
     plt.clf()
     if title:
         plt.title(title)
@@ -127,6 +338,17 @@ def plot_waterlines(
     show_legend=False,
     filename=None,
 ):
+    """Plot waterlines
+
+    Interpolate waterlines from frame data and plot using matplotlib
+    :param frames: List of frames (Typically `Lines.frames`)
+    :param drafts_ap: List of drafs levels at aft perpendicular to draw waterlines at
+    :param drafts_fp: List of drafs levels at forward perpendicular. Assumed equal to `drafts_ap` when not provided
+    :param title: Plot title
+    :param show_frames: Whether to show the frame locations
+    :param show_legend: Whether to show plot legend
+    :param filename: Filename to save plot to rather than show it on the screen
+    """
     plt.clf()
     if title:
         plt.title(title)
@@ -149,6 +371,10 @@ def plot_waterlines(
 
 
 def line_segments(line):
+    """Create list vectors from each point to the next for line
+
+    :param lines: Line (list of points) to create vectors for
+    """
     if len(line) < 2:
         return []
     line = np.asarray(line)
@@ -157,6 +383,10 @@ def line_segments(line):
 
 
 def line_lengths(line):
+    """Create list of lengths of segments in a line
+
+    :param lines: Line (list of points) to create list of segment lengths for
+    """
     if len(line) < 2:
         return []
     line = np.asarray(line)
@@ -167,6 +397,11 @@ def line_lengths(line):
 
 
 def get_waterline_points(frame, draft):
+    """Get list of intersections of frame with waterline
+
+    :param draft: Z coordinate of waterline
+    :return: List of waterline intersection points
+    """
     result = []
     prev = [0, 0]
     points = frame.yz
@@ -186,6 +421,12 @@ def get_waterline_points(frame, draft):
 
 
 def get_submerged_frame(frame, draft):
+    """Get submerged section of frame as new frame
+
+    :param frame: Frame to consider
+    :param draft: Draftlevel (Z coordinate above baseline) of waterline
+    :return: New frame containing only the submerged part of original
+    """
     result = Frame(x=frame.x)
     points = frame.yz
     prev = frame.yz[0]
@@ -207,6 +448,11 @@ def get_submerged_frame(frame, draft):
 
 
 def get_cross_section(frame, full=False):
+    """Get sectional area of frame
+
+    :param frame: Frame to calculate sectional area of
+    :param full: Wether to consider only the full frame or only half
+    """
     if not len(frame.yz):
         return 0.0
     a = np.asarray(frame.yz)
@@ -214,6 +460,10 @@ def get_cross_section(frame, full=False):
 
 
 def get_mom_y(frame):
+    """Get static area moment of frame about Y axis
+
+    :param frame: Frame to consider
+    """
     if not len(frame.yz):
         return 0.0
     a = np.asarray(frame.yz)
@@ -223,6 +473,12 @@ def get_mom_y(frame):
 
 
 def get_mom_z(frame):
+    """Get static area moment of frame about Z axis
+
+    Expected to be zero for symmetrical frame at no heel
+
+    :param frame: Frame to consider
+    """
     if not len(frame.yz):
         return 0.0
     a = np.asarray(frame.yz)
@@ -234,6 +490,13 @@ def get_mom_z(frame):
 
 
 def get_submerged_frames(frames, draft_ap, draft_fp=None):
+    """Get list of submerged parts of frames
+
+    :param frames: List of frames
+    :param draft_ap: Draft at aft perpendicular
+    :param draft_fp: Draft at forward perpendicular. Same as draft_ap when not provided
+    :return: List of submerged parts of frames
+    """
     if draft_fp is None:
         draft_fp = draft_ap
     xs = np.array([frame.x for frame in frames])
@@ -242,6 +505,13 @@ def get_submerged_frames(frames, draft_ap, draft_fp=None):
 
 
 def get_displacement(frames, draft_ap, draft_fp=None, full=False):
+    """Get displacement at specified draft
+
+    :param frames: List of half frames
+    :param draft_ap: Draft at aft perpendicular
+    :param draft_fp: Draft at forward perpendicular. Same as draft_ap when not provided
+    :return: DISP
+    """
     submerged_frames = get_submerged_frames(frames, draft_ap, draft_fp)
     xs = np.array([frame.x for frame in frames])
     cross_sections = [
@@ -252,6 +522,13 @@ def get_displacement(frames, draft_ap, draft_fp=None, full=False):
 
 
 def get_lcb(frames, draft_ap, draft_fp=None):
+    """Get longitudinal position of center of buoyancy
+
+    :param frames: List of half frames
+    :param draft_ap: Draft at aft perpendicular
+    :param draft_fp: Draft at forward perpendicular. Same as draft_ap when not provided
+    :return: LCB
+    """
     submerged_frames = get_submerged_frames(frames, draft_ap, draft_fp)
     xs = np.array([frame.x for frame in frames])
     cross_sections = [get_cross_section(submerged) for submerged in submerged_frames]
@@ -261,6 +538,13 @@ def get_lcb(frames, draft_ap, draft_fp=None):
 
 
 def get_waterline(frames, draft_ap, draft_fp=None):
+    """Get waterline at specified draft
+
+    :param frames: List of half frames
+    :param draft_ap: Draft at aft perpendicular
+    :param draft_fp: Draft at forward perpendicular. Same as draft_ap when not provided
+    :return: Waterline
+    """
     result = []
     if draft_fp is None:
         draft_fp = draft_ap
@@ -298,6 +582,11 @@ def get_waterline(frames, draft_ap, draft_fp=None):
 
 
 def get_waterline_properties(waterline):
+    """Get properties of waterline
+
+    :param waterline: Waterline to consider
+    :return: Area, Static moment X, Squared moment X, Static moment Y, Squared moment Y
+    """
     area, momx, momx2, momy, momy2 = 0.0, 0.0, 0.0, 0.0, 0.0
     for p1, p2 in zip(waterline[:-1], waterline[1:]):
         x1, x2, y1, y2 = p1[0], p2[0], p1[1], p2[1]
@@ -317,6 +606,15 @@ def get_waterline_properties(waterline):
 
 
 def get_waterlines(frames, drafts_ap, drafts_fp=None):
+    """Get list of waterlines
+
+    Interpolate waterlines from frames
+
+    :param frames: List of half frames
+    :param drafts_ap: List of drafts at aft perpendicular
+    :param drafts_fp: List of drafts at forward perpendicular. Same as drafts_ap when not provided
+    :return: List of waterlines
+    """
     if drafts_fp is None:
         drafts_fp = drafts_ap
     result = []
@@ -327,6 +625,13 @@ def get_waterlines(frames, drafts_ap, drafts_fp=None):
 
 
 def get_bm(frames, draft_ap, draft_fp=None):
+    """Get distance from center of buoyance to meta center
+
+    :param frames: List of half frames
+    :param draft_ap: Draft at aft perpendicular
+    :param draft_fp: Draft at forward perpendicular. Same as draft_ap when not provided
+    :return: BM
+    """
     waterline = get_waterline(frames, draft_ap, draft_fp)
     a, mx, mx2, my, my2 = get_waterline_properties(waterline)
     dispvol = get_displacement(frames, draft_ap, draft_fp)
@@ -334,6 +639,13 @@ def get_bm(frames, draft_ap, draft_fp=None):
 
 
 def get_kb(frames, draft_ap, draft_fp=None):
+    """Get height of center of buoyance above base line
+
+    :param frames: List of half frames
+    :param draft_ap: Draft at aft perpendicular
+    :param draft_fp: Draft at forward perpendicular. Same as draft_ap when not provided
+    :return: KB
+    """
     if draft_fp is None:
         draft_fp = draft_ap
     max_draft = max(draft_fp, draft_ap)
@@ -349,16 +661,33 @@ def get_kb(frames, draft_ap, draft_fp=None):
 
 
 def get_km(frames, draft_ap, draft_fp=None):
+    """Get meta centric height at specified draft
+
+    :param frames: List of half frames
+    :param draft_ap: Draft at aft perpendicular
+    :param draft_fp: Draft at forward perpendicular. Same as draft_ap when not provided
+    :return: KM = KB + BM
+    """
     return get_bm(frames, draft_ap, draft_fp) + get_kb(frames, draft_ap, draft_fp)
 
 
 def get_lcf(frames, draft_ap, draft_fp=None):
+    """Get longitudinal position of point of floatation (area center of waterline)
+
+    :param frames: List of half frames
+    :param draft_ap: Draft at aft perpendicular
+    :param draft_fp: Draft at forward perpendicular. Same as draft_ap when not provided
+    """
     waterline = get_waterline(frames, draft_ap, draft_fp)
     a, mx, mx2, my, my2 = get_waterline_properties(waterline)
     return my / a
 
 
 def get_hull_volume(frames):
+    """Get volume of hull
+
+    :param frames: Get volume enclosed by frames
+    """
     xs = np.array([frame.x for frame in frames])
     cross_sections = [get_cross_section(frame) for frame in frames]
     vol = simpson(cross_sections, x=xs)
@@ -366,6 +695,10 @@ def get_hull_volume(frames):
 
 
 def get_hull_areas(frames, deck_chine=-1):
+    """Get surface area of hull and deck
+
+    :return: Tuple of hull area, deck area
+    """
     hull = []
     deck = []
     xs = np.array([frame.x for frame in frames])
@@ -379,6 +712,13 @@ def get_hull_areas(frames, deck_chine=-1):
 
 
 def get_wetted_surface(frames, draft_ap, draft_fp=None):
+    """Get area of wetted surface of submerged hull
+
+    :param frames: List of half frames
+    :param draft_ap: Draft at aft perpendicular
+    :param draft_fp: Draft at forward perpendicular. Same as draft_ap when not provided
+    :return: Area of wetted surface
+    """
     xs = np.array([frame.x for frame in frames])
     submerged_frames = get_submerged_frames(frames, draft_ap, draft_fp)
     lengths = [np.sum(line_lengths(submerged.yz)) for submerged in submerged_frames]
@@ -386,6 +726,10 @@ def get_wetted_surface(frames, draft_ap, draft_fp=None):
 
 
 def get_full_frames(frames):
+    """Get list of full frames from list of one sided frames
+
+    Add mirror image of each frame to turn each frame into a "full" frame
+    """
     result = []
     for frame in frames:
         full_frame = Frame(x=frame.x)
@@ -397,6 +741,14 @@ def get_full_frames(frames):
 
 
 def get_rotated_frames(full_frames, phi):
+    """Get copy of all frames rotated about the x axis by some angle
+
+    Used to simulate heeling of the boat
+
+    :param full_frames: List of symmetrical frames
+    :param phi: Angle to rotate by
+    :return: List of rotated/heeled over frames
+    """
     result = []
     for frame in full_frames:
         new_frame = Frame(x=frame.x)
@@ -410,6 +762,13 @@ def get_rotated_frames(full_frames, phi):
 
 
 def submerge_frames(full_frames, draft, trim=0):
+    """Get displacement and CB of frames at specified draft and trim
+
+    :param full_frames: List of symmetrical (but potentially rotated) frames
+    :param draft: Draft to submerge the frames by
+    :param trim: Trim (Difference between Aft and forward draft)
+    :return: Tuple of Displacement, XCB, YCB, ZCB
+    """
     draft_ap = draft
     draft_fp = draft - trim
     xs = np.array([frame.x for frame in full_frames])
@@ -430,6 +789,13 @@ def submerge_frames(full_frames, draft, trim=0):
 
 
 def float_frames(full_frames, dispvol, lcb):
+    """Get draft and trim for specified displacement and LCB
+
+    :param full_frames: List of full (symmetrical) frames
+    :param dispvol: Desired displacement
+    :param lcb: Longitudinal position of center of buoyancy relative to midships (0.5 L)
+    """
+
     def submerge(draft_trim):
         draft, trim = draft_trim
         ff = copy.deepcopy(full_frames)

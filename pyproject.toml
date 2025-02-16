@@ -1,10 +1,17 @@
 [tool.poetry]
 name = "linesplan"
-version = "0.1.2"
+version = "0.1.4"
 description = "Ship Linesplan and Hydrostatics"
 authors = ["Jaap Versteegh <j.r.versteegh@gmail.com>"]
 license = "GPLv3"
 readme = "README.md"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3.11"
+]
+
+[tool.poetry.urls]
+Repository = "https://github.com/jrversteegh/linesplan"
 
 [tool.poetry.dependencies]
 python = "3.11.*"
@@ -27,3 +34,4 @@ jupyter = "^1.0.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
